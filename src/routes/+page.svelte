@@ -17,15 +17,11 @@
 
 	let prompt = $state(DEFAULT_ANALYSIS_PROMPT);
 	type CategoryKey =
-		| 'mental_health_emotions'
-		| 'romantic_relationships'
-		| 'family_conflicts'
-		| 'financial_data'
-		| 'political_religious_beliefs'
-		| 'secrets_lies'
-		| 'biometric_physical'
-		| 'third_party_conversations'
-		| 'location_habits';
+		| 'health_vulnerability'
+		| 'personal_relationships_conflicts'
+		| 'financial_vulnerability'
+		| 'risky_confessions_secrets'
+		| 'location_routine_tracking';
 	type RiskLevel = 'none' | 'low' | 'medium' | 'high';
 	type CategoryScore = { score: number; risk: RiskLevel; evidence: string[] };
 	type ParsedAnalysis = {
@@ -44,26 +40,18 @@
 	};
 
 	const CATEGORY_KEYS: CategoryKey[] = [
-		'mental_health_emotions',
-		'romantic_relationships',
-		'family_conflicts',
-		'financial_data',
-		'political_religious_beliefs',
-		'secrets_lies',
-		'biometric_physical',
-		'third_party_conversations',
-		'location_habits'
+		'health_vulnerability',
+		'personal_relationships_conflicts',
+		'financial_vulnerability',
+		'risky_confessions_secrets',
+		'location_routine_tracking'
 	];
 	const CATEGORY_LABELS: Record<CategoryKey, string> = {
-		mental_health_emotions: 'Sante mentale / emotions',
-		romantic_relationships: 'Relations amoureuses / vie sentimentale',
-		family_conflicts: 'Problemes familiaux / conflits',
-		financial_data: 'Donnees financieres personnelles',
-		political_religious_beliefs: 'Croyances / opinions politiques / religieuses',
-		secrets_lies: 'Secrets / mensonges',
-		biometric_physical: 'Donnees biometriques / physiques',
-		third_party_conversations: 'Conversations sur des tiers',
-		location_habits: 'Localisation / habitudes'
+		health_vulnerability: 'Health vulnerability',
+		personal_relationships_conflicts: 'Personal relationships/conflicts',
+		financial_vulnerability: 'Financial vulnerability',
+		risky_confessions_secrets: 'Risky confessions/secrets',
+		location_routine_tracking: 'Location/routine tracking'
 	};
 	let results = $state<AnalysisResult[]>([]);
 	const ACCEPTED_UPLOAD_EXTENSIONS = ['.zip', '.json', '.html', '.htm'];
@@ -541,6 +529,13 @@
 								results[i].response = updatedText;
 							});
 							results[i].parsed = parseAnalysis(finalText);
+							console.log('[analysis-json]', {
+								sourceFile: results[i].sourceFile,
+								conversationId: results[i].conversationId,
+								conversationLabel: results[i].conversationLabel,
+								rawResponse: finalText,
+								extractedJson: extractJSONPayload(finalText)
+							});
 						} catch (e) {
 							results[i].response = 'Error: ' + e;
 							results[i].parsed = null;
