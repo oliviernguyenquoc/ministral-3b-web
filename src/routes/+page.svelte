@@ -609,7 +609,7 @@
 </script>
 
 <div
-	class="min-h-screen bg-[radial-gradient(circle_at_10%_10%,#fef3c7_0%,#fff7ed_35%,#f8fafc_75%)] text-slate-900 selection:bg-amber-200"
+	class="min-h-screen bg-[radial-gradient(circle_at_10%_10%,#dbeafe_0%,#eff6ff_38%,#f8fafc_80%)] text-slate-900 selection:bg-sky-200"
 	style="font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;"
 >
 	<div class="mx-auto max-w-7xl px-6 py-10 sm:py-14">
@@ -623,12 +623,7 @@
 					See in 30 seconds what your ChatGPT conversations reveal about you.
 				</h1>
 				<p class="mt-5 max-w-4xl text-base leading-relaxed text-slate-600 sm:text-lg">
-					You may have shared personal information without realizing it: health, money, work, and
-					private life details.
-				</p>
-				<p class="mt-3 max-w-3xl text-sm leading-relaxed text-slate-500 sm:text-base">
-					This page helps you review your conversation exports and quickly spot what might be too
-					sensitive.
+					Upload your export and quickly spot sensitive details you may have shared without thinking.
 				</p>
 				<p class="mt-3 text-xs font-medium text-slate-500">
 					Works best on Google Chrome (desktop)
@@ -662,10 +657,10 @@
 				<!-- Styled Dropzone -->
 				<div class="space-y-6">
 					{#if isProcessing}
-						<div class="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
+						<div class="rounded-xl border border-sky-200 bg-sky-50 px-6 py-8 text-center">
 							<div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
 								<svg
-									class="h-5 w-5 animate-spin text-amber-600"
+									class="h-5 w-5 animate-spin text-sky-600"
 									xmlns="http://www.w3.org/2000/svg"
 									fill="none"
 									viewBox="0 0 24 24"
@@ -685,12 +680,12 @@
 									></path>
 								</svg>
 							</div>
-							<p class="mt-4 text-sm font-semibold text-amber-900">
-								Model is evaluating your conversations...
-							</p>
-							<p class="mt-1 text-xs text-amber-700">
-								{results.length} conversation(s) in progress.
-							</p>
+								<p class="mt-4 text-sm font-semibold text-sky-900">
+									Model is evaluating your conversations...
+								</p>
+								<p class="mt-1 text-xs text-sky-700">
+									{results.length} conversation(s) in progress.
+								</p>
 						</div>
 					{:else}
 						<div>
@@ -710,10 +705,10 @@
 										triggerFileInput();
 									}
 								}}
-								class="group relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition-all duration-200 ease-in-out
-								{dragActive
-									? 'border-amber-500 bg-amber-50/70'
-									: 'border-gray-300 bg-gray-50 hover:border-amber-400 hover:bg-white'}"
+									class="group relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition-all duration-200 ease-in-out
+									{dragActive
+										? 'border-sky-500 bg-sky-50/70'
+										: 'border-gray-300 bg-gray-50 hover:border-sky-400 hover:bg-white'}"
 							>
 								<input
 									id="zip-upload"
@@ -724,7 +719,7 @@
 									class="hidden"
 								/>
 								<div
-									class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-900/5 transition-transform group-hover:scale-110 group-hover:text-amber-600"
+									class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-900/5 transition-transform group-hover:scale-110 group-hover:text-sky-600"
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -732,7 +727,7 @@
 										viewBox="0 0 24 24"
 										stroke-width="1.5"
 										stroke="currentColor"
-										class="h-6 w-6 text-gray-500 group-hover:text-amber-600"
+										class="h-6 w-6 text-gray-500 group-hover:text-sky-600"
 									>
 										<path
 											stroke-linecap="round"
@@ -742,9 +737,9 @@
 									</svg>
 								</div>
 								<div class="mt-4 flex text-sm text-gray-600">
-									<span class="font-semibold text-amber-700 hover:text-amber-600"
-										>Click to upload</span
-									>
+										<span class="font-semibold text-sky-700 hover:text-sky-600"
+											>Click to upload</span
+										>
 									<span class="pl-1">or drag and drop a ZIP, JSON, or HTML file</span>
 								</div>
 								<p class="mt-1 text-xs text-gray-500">Accepted formats: ZIP, JSON, HTML</p>
@@ -893,13 +888,13 @@
 				How it works: upload a ZIP, JSON, or HTML file, automatic analysis starts, then review the
 				flagged sensitive passages.
 			</p>
-			<p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+			<p class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-900">
 				Don&apos;t trust us blindly. This project is open source and fully replicable.
 				<a
 					href="https://github.com/oliviernguyenquoc/ministral-3b-web"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="ml-1 font-semibold underline decoration-amber-500 underline-offset-2 hover:text-amber-700"
+					class="ml-1 font-semibold underline decoration-sky-500 underline-offset-2 hover:text-sky-700"
 				>
 					Review the code on GitHub
 				</a>
@@ -931,7 +926,7 @@
 				</p>
 				<div class="mb-4 h-3 overflow-hidden rounded-full bg-slate-200">
 					<div
-						class="h-full rounded-full bg-amber-500 transition-all duration-300 ease-out"
+						class="h-full rounded-full bg-sky-500 transition-all duration-300 ease-out"
 						style="width: {loadProgress}%"
 					></div>
 				</div>

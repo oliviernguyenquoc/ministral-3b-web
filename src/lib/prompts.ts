@@ -1,4 +1,10 @@
-export const DEFAULT_ANALYSIS_PROMPT = `Analyze this conversation export for sensitive information.
+export const DEFAULT_ANALYSIS_PROMPT = `
+You MUST output ONLY a single valid JSON object.
+No markdown, no code fences, no commentary.
+Use double quotes for all keys and strings.
+No trailing commas.
+
+Analyze this conversation export for sensitive information.
 
 Goal: detect *exploitable* private disclosures (not just generic PII). Be strict about evidence: only score high when the conversation contains concrete, personal, identifiable details.
 
