@@ -29,3 +29,4 @@ conversations
 *jsonl
 *.html
 *.log
+.env
