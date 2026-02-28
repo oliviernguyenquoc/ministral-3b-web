@@ -22,6 +22,10 @@ In the cloud, nothing is truly secret. Take back control.
 
 See: [how_to_import_ai_conversation.md]
 
+## Prompt memory
+
+For future prompt context and validated UX decisions, see: [PROMPT_MEMORY.md]
+
 ## Target Audience And Language
 
 This product is aimed at non-technical users first.
@@ -32,6 +36,18 @@ This product is aimed at non-technical users first.
 All public-facing product content must be in English.
 - UI labels, headings, helper text, and calls-to-action are English-only.
 - README and product copy should avoid mixing French and English.
+
+## Which type of conversation we detect
+
+- Santé mentale/émotions
+- Vie très personnelle: Relations amoureuses/vie sentimentale
+- Problèmes familiaux/conflits
+- Données financières personnelles
+- Croyances/opinions politiques/religieuses
+- Secrets/mensonges
+- Données biométriques/physiques
+- Conversations sur des tiers
+- Localisation/habitudes
 
 ## How to run the project
 

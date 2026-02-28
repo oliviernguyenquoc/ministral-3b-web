@@ -666,64 +666,96 @@
 			<div class="p-6">
 				<!-- Styled Dropzone -->
 				<div class="space-y-6">
-					<div>
-						<label for="dropzone" class="mb-2 block text-sm font-medium text-gray-700"
-							>Upload conversations (ZIP, JSON, HTML)</label
-						>
-						<div
-							role="button"
-							tabindex="0"
-							onclick={triggerFileInput}
-							ondragenter={handleDrag}
-							ondragleave={handleDrag}
-							ondragover={handleDrag}
-							ondrop={handleDrop}
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									triggerFileInput();
-								}
-							}}
-							class="group relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition-all duration-200 ease-in-out
-                            {dragActive
-								? 'border-amber-500 bg-amber-50/70'
-								: 'border-gray-300 bg-gray-50 hover:border-amber-400 hover:bg-white'}"
-						>
-							<input
-								id="zip-upload"
-								type="file"
-								accept=".zip,.json,.html,.htm"
-								bind:this={fileInput}
-								onchange={handleFileSelect}
-								class="hidden"
-							/>
-							<div
-								class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-900/5 transition-transform group-hover:scale-110 group-hover:text-amber-600"
-							>
+					{#if isProcessing}
+						<div class="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center">
+							<div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
 								<svg
+									class="h-5 w-5 animate-spin text-amber-600"
 									xmlns="http://www.w3.org/2000/svg"
 									fill="none"
 									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="h-6 w-6 text-gray-500 group-hover:text-amber-600"
 								>
+									<circle
+										class="opacity-25"
+										cx="12"
+										cy="12"
+										r="10"
+										stroke="currentColor"
+										stroke-width="4"
+									></circle>
 									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-									/>
+										class="opacity-75"
+										fill="currentColor"
+										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+									></path>
 								</svg>
 							</div>
-							<div class="mt-4 flex text-sm text-gray-600">
-								<span class="font-semibold text-amber-700 hover:text-amber-600"
-									>Click to upload</span
-								>
-								<span class="pl-1">or drag and drop a ZIP, JSON, or HTML file</span>
-							</div>
-							<p class="mt-1 text-xs text-gray-500">Accepted formats: ZIP, JSON, HTML</p>
+							<p class="mt-4 text-sm font-semibold text-amber-900">
+								Model is evaluating your conversations...
+							</p>
+							<p class="mt-1 text-xs text-amber-700">
+								{results.length} conversation(s) in progress.
+							</p>
 						</div>
-					</div>
-
+					{:else}
+						<div>
+							<label for="dropzone" class="mb-2 block text-sm font-medium text-gray-700"
+								>Upload conversations (ZIP, JSON, HTML)</label
+							>
+							<div
+								role="button"
+								tabindex="0"
+								onclick={triggerFileInput}
+								ondragenter={handleDrag}
+								ondragleave={handleDrag}
+								ondragover={handleDrag}
+								ondrop={handleDrop}
+								onkeydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										triggerFileInput();
+									}
+								}}
+								class="group relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition-all duration-200 ease-in-out
+								{dragActive
+									? 'border-amber-500 bg-amber-50/70'
+									: 'border-gray-300 bg-gray-50 hover:border-amber-400 hover:bg-white'}"
+							>
+								<input
+									id="zip-upload"
+									type="file"
+									accept=".zip,.json,.html,.htm"
+									bind:this={fileInput}
+									onchange={handleFileSelect}
+									class="hidden"
+								/>
+								<div
+									class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-900/5 transition-transform group-hover:scale-110 group-hover:text-amber-600"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="h-6 w-6 text-gray-500 group-hover:text-amber-600"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+										/>
+									</svg>
+								</div>
+								<div class="mt-4 flex text-sm text-gray-600">
+									<span class="font-semibold text-amber-700 hover:text-amber-600"
+										>Click to upload</span
+									>
+									<span class="pl-1">or drag and drop a ZIP, JSON, or HTML file</span>
+								</div>
+								<p class="mt-1 text-xs text-gray-500">Accepted formats: ZIP, JSON, HTML</p>
+							</div>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Results Table -->
