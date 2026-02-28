@@ -10,9 +10,11 @@
 	let dragActive = $state(false);
 
 	let loadProgress = $state(0);
-	let loadStatus = $state('Initiating...');
+	let loadStatus = $state('Preparation...');
 
-	let prompt = $state('Describe this image');
+	let prompt = $state(
+		"Repere les informations privees ou sensibles dans cette conversation (sante, argent, identite, travail) et donne un verdict clair."
+	);
 	let results = $state<Array<{ fileName: string; imageSrc: string; response: string }>>([]);
 
 	let fileInput = $state<HTMLInputElement>();
@@ -30,7 +32,7 @@
 			isModelReady = true;
 		} catch (e) {
 			console.error(e);
-			alert('Failed to load model. Check console for details.');
+			alert("Le chargement a echoue. Consultez la console pour plus de details.");
 			isDownloading = false;
 		}
 	}
@@ -69,7 +71,7 @@
 
 	async function processFile(file: File) {
 		if (!file.name.endsWith('.zip')) {
-			alert('Please upload a valid ZIP file.');
+			alert('Merci d importer un fichier ZIP valide.');
 			return;
 		}
 
@@ -153,7 +155,7 @@
 			return str;
 		};
 
-		const headers = ['File Name', 'Response'];
+		const headers = ['Fichier', 'Analyse'];
 		const csvRows = [
 			headers.join(','),
 			...results.map((r) => `${escapeCSV(r.fileName)},${escapeCSV(r.response)}`)
@@ -174,17 +176,41 @@
 	const hasResponses = $derived(results.some((r) => r.response));
 </script>
 
-<div class="min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-indigo-100">
-	<div class="mx-auto max-w-7xl px-6 py-12">
-		<!-- Header -->
-		<header class="mb-10 text-center">
-			<h1 class="text-2xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-				Ministral 3B Vision
-			</h1>
-			<p class="mt-4 text-lg font-medium text-gray-500">
-				Local & private image analysis in your browser
-			</p>
-			<p class="mt-2 font-medium text-gray-500">Works best in Google Chrome (desktop)</p>
+<div
+	class="min-h-screen bg-[radial-gradient(circle_at_10%_10%,#fef3c7_0%,#fff7ed_35%,#f8fafc_75%)] text-slate-900 selection:bg-amber-200"
+	style="font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;"
+>
+	<div class="mx-auto max-w-7xl px-6 py-10 sm:py-14">
+		<header class="relative mb-10 overflow-hidden rounded-3xl border border-amber-200/80 bg-white/85 p-6 shadow-[0_20px_70px_-40px_rgba(180,83,9,0.5)] backdrop-blur sm:p-10">
+			<div class="pointer-events-none absolute -top-20 -right-12 h-56 w-56 rounded-full bg-amber-200/60 blur-3xl"></div>
+			<div class="pointer-events-none absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-orange-200/70 blur-3xl"></div>
+			<div class="relative">
+				<p class="inline-flex rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-amber-900 uppercase">
+					Test de confidentialite
+				</p>
+				<h1 class="mt-4 max-w-5xl text-3xl leading-tight font-black tracking-tight text-slate-900 sm:text-5xl">
+					Decouvrez en 30 secondes ce que vos conversations ChatGPT revelent sur vous.
+				</h1>
+				<p class="mt-5 max-w-4xl text-base leading-relaxed text-slate-600 sm:text-lg">
+					Vous avez peut-etre partage des informations personnelles sans vous en rendre compte:
+					sante, argent, travail, vie privee.
+				</p>
+				<p class="mt-3 max-w-3xl text-sm leading-relaxed text-slate-500 sm:text-base">
+					Cette page vous aide a verifier vos captures de conversation et a identifier rapidement ce
+					qui pourrait etre trop sensible.
+				</p>
+				<div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+					<a
+						href="#local-scan"
+						class="rounded-xl border border-slate-900 bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+					>
+						Commencer l'analyse
+					</a>
+				</div>
+				<p class="mt-3 text-xs font-medium text-slate-500">
+					Fonctionne mieux sur Google Chrome (ordinateur)
+				</p>
+			</div>
 		</header>
 
 		<!-- SECTION: Model Loader (Slides away when ready) -->
@@ -196,16 +222,18 @@
 				<div class="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
 					<h2 class="flex items-center gap-2 text-lg font-semibold text-gray-800">
 						<span
-							class="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white"
+							class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-xs text-white"
 							>1</span
 						>
-						Initialise Model
+						Preparation de l'analyse
 					</h2>
 				</div>
 
 				<div class="p-8 text-center">
-					<p class="mb-2 text-gray-600">Download the Ministral-3B model.</p>
-					<p class="mb-6 text-gray-600">This happens once and is stored in your browser's cache.</p>
+					<p class="mb-2 text-gray-600">Telechargez le module d'analyse.</p>
+					<p class="mb-6 text-gray-600">
+						Cette etape se fait une seule fois et reste en memoire dans votre navigateur.
+					</p>
 
 					<button
 						onclick={loadModel}
@@ -247,7 +275,7 @@
 								<span class="border-l border-gray-600 pl-3 text-gray-300">{loadStatus}</span>
 							</div>
 						{:else}
-							Download & Load Model (~3GB)
+							Telecharger et demarrer (~3GB)
 						{/if}
 					</button>
 				</div>
@@ -264,19 +292,22 @@
 					></span>
 					<span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
 				</span>
-				Model Ready
+				Analyse prete
 			</div>
 		{/if}
 
 		<!-- SECTION: Interaction (Only visible when loaded or fading in) -->
 		<section
-			class="rounded-2xl border border-gray-200 bg-white shadow-sm transition-opacity duration-500 {isModelReady
+			id="local-scan"
+			class="mb-8 rounded-2xl border border-gray-200 bg-white shadow-sm transition-opacity duration-500 {isModelReady
 				? 'opacity-100'
 				: 'pointer-events-none opacity-40 blur-sm filter'}"
 		>
 			<div class="border-b border-gray-100 px-6 py-5">
-				<h2 class="text-xl font-bold tracking-tight text-gray-900">Batch Analysis</h2>
-				<p class="text-sm text-gray-500">Upload images and define your prompt.</p>
+				<h2 class="text-xl font-bold tracking-tight text-gray-900">Analyse de confidentialite</h2>
+				<p class="text-sm text-gray-500">
+					Importez vos captures de conversation (ZIP), puis obtenez un resultat clair.
+				</p>
 			</div>
 
 			<div class="p-6">
@@ -284,7 +315,7 @@
 				<div class="space-y-6">
 					<div>
 						<label for="dropzone" class="mb-2 block text-sm font-medium text-gray-700"
-							>Upload Images (ZIP)</label
+							>Importer des captures (ZIP)</label
 						>
 						<div
 							role="button"
@@ -301,8 +332,8 @@
 							}}
 							class="group relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition-all duration-200 ease-in-out
                             {dragActive
-								? 'border-indigo-500 bg-indigo-50/50'
-								: 'border-gray-300 bg-gray-50 hover:border-indigo-400 hover:bg-white'}"
+								? 'border-amber-500 bg-amber-50/70'
+								: 'border-gray-300 bg-gray-50 hover:border-amber-400 hover:bg-white'}"
 						>
 							<input
 								id="zip-upload"
@@ -314,7 +345,7 @@
 								disabled={!isModelReady}
 							/>
 							<div
-								class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-900/5 transition-transform group-hover:scale-110 group-hover:text-indigo-600"
+								class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-900/5 transition-transform group-hover:scale-110 group-hover:text-amber-600"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -322,7 +353,7 @@
 									viewBox="0 0 24 24"
 									stroke-width="1.5"
 									stroke="currentColor"
-									class="h-6 w-6 text-gray-500 group-hover:text-indigo-600"
+									class="h-6 w-6 text-gray-500 group-hover:text-amber-600"
 								>
 									<path
 										stroke-linecap="round"
@@ -332,26 +363,30 @@
 								</svg>
 							</div>
 							<div class="mt-4 flex text-sm text-gray-600">
-								<span class="font-semibold text-indigo-600 hover:text-indigo-500"
-									>Click to upload</span
+								<span class="font-semibold text-amber-700 hover:text-amber-600"
+									>Cliquez pour importer</span
 								>
-								<span class="pl-1">or drag and drop ZIP</span>
+								<span class="pl-1">ou glissez-deposez votre archive ZIP</span>
 							</div>
-							<p class="mt-1 text-xs text-gray-500">Supported images: JPG, PNG, GIF, WebP</p>
+							<p class="mt-1 text-xs text-gray-500">
+								Formats acceptes: JPG, PNG, GIF, WebP
+							</p>
 						</div>
 					</div>
 
 					<!-- Prompt Area -->
 					<div>
-						<label for="prompt" class="mb-2 block text-sm font-medium text-gray-700">Prompt</label>
+						<label for="prompt" class="mb-2 block text-sm font-medium text-gray-700"
+							>Consigne d'analyse</label
+						>
 						<div class="relative">
 							<textarea
 								id="prompt"
 								bind:value={prompt}
 								disabled={!isModelReady}
 								rows="2"
-								class="block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 shadow-sm transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 sm:text-sm"
-								placeholder="E.g., Describe the main subject of this image in detail..."
+								class="block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 shadow-sm transition-colors focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 sm:text-sm"
+								placeholder="Exemple: repere les infos personnelles, sante ou finance..."
 							></textarea>
 						</div>
 					</div>
@@ -360,7 +395,7 @@
 					<button
 						onclick={runInference}
 						disabled={!isModelReady || !results.length || isProcessing}
-						class="w-full cursor-pointer rounded-xl bg-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+						class="w-full cursor-pointer rounded-xl bg-amber-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
 					>
 						{#if isProcessing}
 							<span class="flex items-center justify-center gap-2">
@@ -384,10 +419,10 @@
 										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 									></path>
 								</svg>
-								Analysing {results.length} images...
+								Analyse en cours ({results.length} image(s))...
 							</span>
 						{:else}
-							Run Analysis
+							Lancer l'analyse
 						{/if}
 					</button>
 				</div>
@@ -397,7 +432,7 @@
 					<div class="animate-in fade-in slide-in-from-bottom-4 mt-10 duration-500">
 						<div class="mb-4 flex items-center justify-between">
 							<h3 class="text-base leading-6 font-semibold text-gray-900">
-								Results <span class="ml-2 rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+								Resultats <span class="ml-2 rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
 									>{results.length}</span
 								>
 							</h3>
@@ -418,7 +453,7 @@
 										clip-rule="evenodd"
 									/>
 								</svg>
-								Download CSV
+								Telecharger CSV
 							</button>
 						</div>
 
@@ -429,17 +464,17 @@
 										<th
 											scope="col"
 											class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-											>Preview</th
+											>Apercu</th
 										>
 										<th
 											scope="col"
 											class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-											>Filename</th
+											>Fichier</th
 										>
 										<th
 											scope="col"
 											class="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-											>Response</th
+											>Analyse</th
 										>
 									</tr>
 								</thead>
@@ -474,7 +509,7 @@
 														></span>
 													</span>
 												{:else}
-													<span class="text-xs text-gray-300 italic">Pending</span>
+													<span class="text-xs text-gray-300 italic">En attente</span>
 												{/if}
 											</td>
 										</tr>
@@ -485,6 +520,37 @@
 					</div>
 				{/if}
 			</div>
+		</section>
+
+		<section class="mb-8 grid gap-4 lg:grid-cols-3">
+			<article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<h2 class="text-lg font-bold text-slate-900">Pourquoi c'est rassurant</h2>
+				<p class="mt-3 text-sm leading-relaxed text-slate-600">
+					Vos fichiers restent sur votre ordinateur pendant l'analyse. Rien n'est envoye vers nos
+					serveurs.
+				</p>
+			</article>
+			<article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<h2 class="text-lg font-bold text-slate-900">Comment ca marche</h2>
+				<ul class="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">
+					<li>1. Importez votre archive ZIP.</li>
+					<li>2. Lancez l'analyse en un clic.</li>
+					<li>3. Lisez les passages a risque detectes.</li>
+				</ul>
+			</article>
+			<article class="rounded-2xl border border-rose-200 bg-rose-50 p-6 shadow-sm">
+				<h2 class="text-lg font-bold text-rose-900">Exemple de resultat</h2>
+				<p class="mt-3 text-sm leading-relaxed text-rose-800">
+					&quot;Conversation tres privee: l'echange du 03/12 contient des details de sante
+					sensibles.&quot;
+				</p>
+			</article>
+		</section>
+
+		<section class="mb-10 rounded-2xl border border-slate-900 bg-slate-900 px-6 py-5 text-center text-white">
+			<p class="text-xs font-semibold tracking-[0.16em] text-amber-300 uppercase">Sensibilisation</p>
+			<p class="mt-2 text-lg font-bold sm:text-xl">Dans le cloud, rien n'est vraiment secret.</p>
+			<p class="mt-2 text-sm text-slate-300">Prenez 30 secondes pour verifier ce que vous avez partage.</p>
 		</section>
 	</div>
 </div>

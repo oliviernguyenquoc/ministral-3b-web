@@ -16,11 +16,22 @@ How does it work?
 - Unfiltered verdict: "Highly private conversation: Your exchange from 03/12 contains sensitive health details."
 
 In the cloud, nothing is truly secret. Take back control.
-→ Try it for free on AmIScrewed.eu (Coming soon)
+→ Try it for free on AmIScrewed.eu
 
 ## How to import AI conversation
 
 See: [how_to_import_ai_conversation.md]
+
+## Target Audience And Language
+
+This product is aimed at non-technical users first.
+- The homepage should read like a privacy awareness page, not a developer tool.
+- Wording should stay simple, concrete, and reassuring for everyday users.
+- The upload and results flow must be visible early on the page.
+
+All public-facing product content must be in English.
+- UI labels, headings, helper text, and calls-to-action are English-only.
+- README and product copy should avoid mixing French and English.
 
 ## How to run the project
 
