@@ -25,3 +25,7 @@ vite.config.ts.timestamp-*
 # Conversations
 
 conversations
+*.pyc
+*jsonl
+*.html
+*.log
