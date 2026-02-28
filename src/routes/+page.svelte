@@ -10,6 +10,7 @@
 	let isDownloading = $state(false);
 	let showLoadingModal = $state(false);
 	let dragActive = $state(false);
+	let modelLoadPromise: Promise<void> | null = null;
 
 	let loadProgress = $state(0);
 	let loadStatus = $state('Preparing...');
@@ -70,23 +71,31 @@
 	let fileInput = $state<HTMLInputElement>();
 
 	async function loadModel() {
-		if (ministral.isLoaded || isDownloading) return;
+		if (ministral.isLoaded) {
+			isModelReady = true;
+			return;
+		}
+		if (modelLoadPromise) return modelLoadPromise;
 
 		isDownloading = true;
+		modelLoadPromise = (async () => {
+			try {
+				await ministral.load((msg, percentage) => {
+					loadStatus = msg;
+					loadProgress = Math.round(percentage);
+				});
+				isModelReady = true;
+			} catch (e) {
+				console.error(e);
+				alert('Model loading failed. Check the console for details.');
+			} finally {
+				isDownloading = false;
+				showLoadingModal = false;
+				modelLoadPromise = null;
+			}
+		})();
 
-		try {
-			await ministral.load((msg, percentage) => {
-				loadStatus = msg;
-				loadProgress = Math.round(percentage);
-			});
-			isModelReady = true;
-		} catch (e) {
-			console.error(e);
-			alert('Model loading failed. Check the console for details.');
-		} finally {
-			isDownloading = false;
-			showLoadingModal = false;
-		}
+		return modelLoadPromise;
 	}
 
 	function triggerFileInput() {
@@ -232,6 +241,13 @@
 		if (score >= 75) return 'border-red-300 bg-red-50 text-red-700';
 		if (score >= 45) return 'border-amber-300 bg-amber-50 text-amber-700';
 		if (score > 0) return 'border-yellow-300 bg-yellow-50 text-yellow-700';
+		return 'border-emerald-300 bg-emerald-50 text-emerald-700';
+	}
+
+	function verdictBadgeClass(verdict: ParsedAnalysis['verdict']) {
+		if (verdict === 'critical') return 'border-rose-400 bg-rose-100 text-rose-800';
+		if (verdict === 'high') return 'border-red-300 bg-red-50 text-red-700';
+		if (verdict === 'medium') return 'border-amber-300 bg-amber-50 text-amber-700';
 		return 'border-emerald-300 bg-emerald-50 text-emerald-700';
 	}
 
@@ -452,7 +468,7 @@
 
 		// Start model download as soon as a valid file is uploaded.
 		showLoadingModal = !isModelReady;
-		void loadModel();
+		const ensureModelReady = isModelReady ? Promise.resolve() : loadModel();
 		results = [];
 
 		try {
@@ -489,6 +505,12 @@
 
 			if (!results.length) {
 				alert('No usable content was found in this file.');
+				return;
+			}
+
+			await ensureModelReady;
+			if (isModelReady && results.length) {
+				await runInference();
 			}
 		} catch (e) {
 			console.error(e);
@@ -702,40 +724,6 @@
 						</div>
 					</div>
 
-					<!-- Action Button -->
-					<button
-						onclick={runInference}
-						disabled={!isModelReady || !results.length || isProcessing}
-						class="w-full cursor-pointer rounded-xl bg-amber-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
-					>
-						{#if isProcessing}
-							<span class="flex items-center justify-center gap-2">
-								<svg
-									class="h-4 w-4 animate-spin text-white"
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<circle
-										class="opacity-25"
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										stroke-width="4"
-									></circle>
-									<path
-										class="opacity-75"
-										fill="currentColor"
-										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-									></path>
-								</svg>
-								Analysis in progress ({results.length} conversation(s))...
-							</span>
-						{:else}
-							Run analysis
-						{/if}
-					</button>
 				</div>
 
 				<!-- Results Table -->
@@ -806,23 +794,25 @@
 												{#if result.response}
 													{#if result.parsed}
 														<div class="space-y-3">
-															<div class="flex flex-wrap items-center gap-2">
-																<span
-																	class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase {scoreBadgeClass(result.parsed.overallScore)}"
-																>
-																	{result.parsed.verdict}
-																</span>
+																<div class="flex flex-wrap items-center gap-2">
+																	<span
+																		class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase {verdictBadgeClass(result.parsed.verdict)}"
+																	>
+																		{result.parsed.verdict}
+																	</span>
 																<span class="text-xs font-medium text-slate-500">
 																	Overall {result.parsed.overallScore}/100
 																</span>
 															</div>
 															<div class="flex flex-wrap gap-2">
 																{#each CATEGORY_KEYS as category}
-																	<span
-																		class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium {scoreBadgeClass(result.parsed.categories[category].score)}"
-																	>
-																		{CATEGORY_LABELS[category]} {result.parsed.categories[category].score} ({result.parsed.categories[category].risk})
-																	</span>
+																	{#if result.parsed.categories[category].risk !== 'none'}
+																		<span
+																			class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium {scoreBadgeClass(result.parsed.categories[category].score)}"
+																		>
+																			{CATEGORY_LABELS[category]} {result.parsed.categories[category].score} ({result.parsed.categories[category].risk})
+																		</span>
+																	{/if}
 																{/each}
 															</div>
 															{#each CATEGORY_KEYS as category}
@@ -873,8 +863,8 @@
 				Your files stay on your device during analysis. Nothing is sent to our servers.
 			</p>
 			<p>
-				How it works: upload a ZIP, JSON, or HTML file, run the analysis, then review the flagged
-				sensitive passages.
+				How it works: upload a ZIP, JSON, or HTML file, automatic analysis starts, then review the
+				flagged sensitive passages.
 			</p>
 			<p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
 				Don&apos;t trust us blindly. This project is open source and fully replicable.
