@@ -1,4 +1,28 @@
-# ministral-3b-web
+## Elevator pitch
+
+Find out what your ChatGPT conversations reveal about you in 30 seconds.
+
+"Deal signed with the Department of War." Sam Altman's latest tweet confirms the shift: your data now lives in the cloud infrastructure of a military giant.
+
+Have you shared secrets with ChatGPT that you'd regret if your boss, the military, or a hacker read them? AmIScrewed.eu scans your history and reveals overly private details you shared without thinking.
+Why is it safe?
+
+Unlike OpenAI, your data never leaves your computer. Thanks to WebGPU, our AI (Ministral) runs directly in your browser. Nothing is sent to our servers.
+
+How does it work?
+
+- Copy your conversations or upload your archive.
+- Ultra-fast local analysis powered by your own graphics card.
+- Unfiltered verdict: "Highly private conversation: Your exchange from 03/12 contains sensitive health details."
+
+In the cloud, nothing is truly secret. Take back control.
+→ Try it for free on AmIScrewed.eu (Coming soon)
+
+## How to import AI conversation
+
+See: [how_to_import_ai_conversation.md]
+
+## How to run the project
 
 Run batch image analysis using the [Ministral-3-3B-Instruct-2512-ONNX](https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-ONNX) model in the browser.
 
