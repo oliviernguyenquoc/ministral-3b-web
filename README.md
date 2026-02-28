@@ -39,15 +39,10 @@ All public-facing product content must be in English.
 
 ## Which type of conversation we detect
 
-- Santé mentale/émotions
-- Vie très personnelle: Relations amoureuses/vie sentimentale
-- Problèmes familiaux/conflits
-- Données financières personnelles
-- Croyances/opinions politiques/religieuses
-- Secrets/mensonges
-- Données biométriques/physiques
-- Conversations sur des tiers
-- Localisation/habitudes
+1) health_vulnerability
+2) personal_relationships_conflicts
+3) financial_vulnerability
+4) risky_confessions_secrets
 
 ## How to run the project
 

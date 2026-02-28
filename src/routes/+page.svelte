@@ -1,8 +1,9 @@
 <script lang="ts">
 	import JSZip from 'jszip';
+	import { onMount } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { ministral } from '$lib/ministral';
+	import { ministral, type GenerationMetrics } from '$lib/ministral';
 	import { DEFAULT_ANALYSIS_PROMPT } from '$lib/prompts';
 
 	let isModelReady = $state(false);
@@ -54,9 +55,20 @@
 		location_routine_tracking: 'Location/routine tracking'
 	};
 	let results = $state<AnalysisResult[]>([]);
+	let activeInferenceIndex = $state<number | null>(null);
+	let completedAnalyses = $state(0);
+	let totalAnalyses = $state(0);
 	const ACCEPTED_UPLOAD_EXTENSIONS = ['.zip', '.json', '.html', '.htm'];
 
 	let fileInput = $state<HTMLInputElement>();
+	let runtimeStatusMessage = $state('Detecting WebGPU...');
+
+	onMount(async () => {
+		const runtime = await ministral.inspectRuntime();
+		runtimeStatusMessage = runtime.webgpuSupported
+			? `WebGPU active${runtime.adapterName ? ` (${runtime.adapterName})` : ''}`
+			: 'WebGPU not detected. Inference will be very slow or unavailable.';
+	});
 
 	async function loadModel() {
 		if (ministral.isLoaded) {
@@ -75,7 +87,8 @@
 				isModelReady = true;
 			} catch (e) {
 				console.error(e);
-				alert('Model loading failed. Check the console for details.');
+				const message = e instanceof Error ? e.message : 'Unknown error';
+				alert(`Model loading failed. ${message}`);
 			} finally {
 				isDownloading = false;
 				showLoadingModal = false;
@@ -243,73 +256,46 @@
 		return value.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 	}
 
-	async function buildImageFromText(rawText: string) {
-		const maxChars = 18000;
+	function prepareTextForAnalysis(rawText: string) {
+		const maxChars = 3500;
 		const normalizedText = rawText.trim();
-		const truncated =
-			normalizedText.length > maxChars
-				? `${normalizedText.slice(0, maxChars)}\n\n[Text truncated for analysis]`
-				: normalizedText;
-		const source = truncated || '[Empty file]';
+		if (!normalizedText) return '[Empty file]';
 
-		return new Promise<string>((resolve) => {
-			const canvas = document.createElement('canvas');
-			const ctx = canvas.getContext('2d');
-			if (!ctx) {
-				resolve('');
-				return;
-			}
+		if (normalizedText.length <= maxChars) return normalizedText;
 
-			const width = 1200;
-			const padding = 40;
-			const lineHeight = 28;
-			const font = '20px "Space Grotesk", "Avenir Next", sans-serif';
+		const headChars = 2200;
+		const tailChars = 1000;
+		const truncated = `${normalizedText.slice(0, headChars)}\n\n[...middle truncated for faster local analysis...]\n\n${normalizedText.slice(-tailChars)}`;
+		return truncated || '[Empty file]';
+	}
 
-			ctx.font = font;
+	function cleanGeminiActivityText(raw: string) {
+		const lines = raw
+			.split('\n')
+			.map((line) => line.trim())
+			.filter(Boolean);
 
-			const lines: string[] = [];
-			for (const paragraph of source.split('\n')) {
-				const words = paragraph.split(/\s+/).filter(Boolean);
-				if (!words.length) {
-					lines.push('');
-					continue;
-				}
-
-				let line = words[0];
-				for (let i = 1; i < words.length; i++) {
-					const candidate = `${line} ${words[i]}`;
-					if (ctx.measureText(candidate).width > width - padding * 2) {
-						lines.push(line);
-						line = words[i];
-					} else {
-						line = candidate;
-					}
-				}
-				lines.push(line);
-			}
-
-			const maxLines = 180;
-			const finalLines =
-				lines.length > maxLines
-					? [...lines.slice(0, maxLines), '[... contenu tronque ...]']
-					: lines;
-			const height = Math.max(420, padding * 2 + finalLines.length * lineHeight + 30);
-
-			canvas.width = width;
-			canvas.height = height;
-
-			ctx.fillStyle = '#ffffff';
-			ctx.fillRect(0, 0, width, height);
-			ctx.fillStyle = '#111827';
-			ctx.font = font;
-			ctx.textBaseline = 'top';
-
-			finalLines.forEach((line, index) => {
-				ctx.fillText(line, padding, padding + index * lineHeight, width - padding * 2);
-			});
-
-			resolve(canvas.toDataURL('image/png'));
+		const filtered = lines.filter((line) => {
+			if (/^Produits\s*:/i.test(line)) return false;
+			if (/^Que fait cette information ici/i.test(line)) return false;
+			if (/^Cette activite a ete enregistree/i.test(line)) return false;
+			if (/^Vous pouvez controler ces parametres/i.test(line)) return false;
+			if (/^Applications Gemini$/i.test(line)) return false;
+			if (/googleusercontent\.com\/gemini_canvas_content/i.test(line)) return false;
+			if (/\bCET$/i.test(line)) return false;
+			return true;
 		});
+
+		const promptLine = filtered.find((line) => /^Prompt\s*:/i.test(line));
+		const prompt = promptLine?.replace(/^Prompt\s*:\s*/i, '').trim() ?? '';
+		const assistantLines = filtered.filter((line) => line !== promptLine);
+
+		const compactAssistant = normalizeExtractedText(assistantLines.join('\n'));
+		if (prompt && compactAssistant) {
+			return `user: ${prompt}\n\nassistant: ${compactAssistant}`;
+		}
+		if (prompt) return `user: ${prompt}`;
+		return compactAssistant;
 	}
 
 	function extractConversationsFromHtml(fileName: string, html: string) {
@@ -320,6 +306,30 @@
 
 		const cards = Array.from(doc.querySelectorAll('.outer-cell'));
 		if (!cards.length) {
+			// Fallback for exported activity formats where selectors may differ.
+			const blockMatches = html.match(/<div class="outer-cell[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi) ?? [];
+			if (blockMatches.length) {
+				const regexChunks = blockMatches
+					.map((block, index) => {
+						const blockDoc = parser.parseFromString(block, 'text/html');
+						const textContent = normalizeExtractedText(
+							cleanGeminiActivityText(blockDoc.body?.textContent ?? '')
+						);
+						if (!textContent) return null;
+						return {
+							conversationId: `${fileName}#conv-${index + 1}`,
+							conversationLabel: `Conversation ${index + 1}`,
+							textContent
+						};
+					})
+					.filter(Boolean) as Array<{
+					conversationId: string;
+					conversationLabel: string;
+					textContent: string;
+				}>;
+				if (regexChunks.length) return regexChunks;
+			}
+
 			const wholeText = normalizeExtractedText(doc.body?.textContent ?? '');
 			return wholeText
 				? [
@@ -337,7 +347,17 @@
 				const title = normalizeExtractedText(
 					(card.querySelector('.mdl-typography--title')?.textContent ?? '').replace(/\s+/g, ' ')
 				);
-				const textContent = normalizeExtractedText((card as HTMLElement).innerText || card.textContent || '');
+				const bodyCells = Array.from(
+					card.querySelectorAll('.content-cell.mdl-cell.mdl-typography--body-1:not(.mdl-typography--text-right)')
+				);
+				const primaryText = bodyCells
+					.map((cell) => cleanGeminiActivityText((cell as HTMLElement).innerText || cell.textContent || ''))
+					.filter(Boolean)
+					.join('\n\n');
+				const fallbackText = cleanGeminiActivityText(
+					(card as HTMLElement).innerText || card.textContent || ''
+				);
+				const textContent = normalizeExtractedText(primaryText || fallbackText);
 				if (!textContent) return null;
 				return {
 					conversationId: `${fileName}#conv-${index + 1}`,
@@ -346,6 +366,154 @@
 				};
 			})
 			.filter(Boolean) as Array<{ conversationId: string; conversationLabel: string; textContent: string }>;
+	}
+
+	type ConversationTurn = {
+		role: string;
+		text: string;
+		createdAt: number | null;
+		order: number;
+	};
+
+	function normalizeRole(role: unknown) {
+		if (typeof role !== 'string') return 'speaker';
+		const normalized = role.trim().toLowerCase();
+		if (!normalized) return 'speaker';
+		if (normalized === 'assistant' || normalized === 'user' || normalized === 'system') {
+			return normalized;
+		}
+		return 'speaker';
+	}
+
+	function extractMessageText(content: unknown): string {
+		if (typeof content === 'string') return content;
+
+		if (Array.isArray(content)) {
+			return content
+				.map((part) => extractMessageText(part))
+				.filter(Boolean)
+				.join('\n');
+		}
+
+		if (content && typeof content === 'object') {
+			const obj = content as Record<string, unknown>;
+			if (Array.isArray(obj.parts)) {
+				return obj.parts
+					.map((part) => extractMessageText(part))
+					.filter(Boolean)
+					.join('\n');
+			}
+			if (typeof obj.text === 'string') return obj.text;
+			if (obj.content) return extractMessageText(obj.content);
+		}
+
+		return '';
+	}
+
+	function toTimestamp(value: unknown) {
+		const candidate = Number(value);
+		return Number.isFinite(candidate) ? candidate : null;
+	}
+
+	function extractTurnsFromMapping(entry: Record<string, unknown>) {
+		const mapping =
+			entry.mapping && typeof entry.mapping === 'object'
+				? (entry.mapping as Record<string, unknown>)
+				: null;
+		if (!mapping) return [] as ConversationTurn[];
+
+		const turns: ConversationTurn[] = [];
+		let order = 0;
+
+		for (const node of Object.values(mapping)) {
+			const nodeRecord = node && typeof node === 'object' ? (node as Record<string, unknown>) : null;
+			const message =
+				nodeRecord?.message && typeof nodeRecord.message === 'object'
+					? (nodeRecord.message as Record<string, unknown>)
+					: null;
+			if (!message) continue;
+
+			const author =
+				message.author && typeof message.author === 'object'
+					? (message.author as Record<string, unknown>)
+					: null;
+			const role = normalizeRole(author?.role ?? message.role);
+			const text = normalizeExtractedText(
+				extractMessageText(message.content ?? message.text ?? message.parts)
+			);
+			if (!text) continue;
+
+			const createdAt = toTimestamp(message.create_time ?? nodeRecord?.create_time);
+			turns.push({
+				role,
+				text,
+				createdAt,
+				order
+			});
+			order += 1;
+		}
+
+		turns.sort((a, b) => {
+			if (a.createdAt === null && b.createdAt === null) return a.order - b.order;
+			if (a.createdAt === null) return 1;
+			if (b.createdAt === null) return -1;
+			if (a.createdAt === b.createdAt) return a.order - b.order;
+			return a.createdAt - b.createdAt;
+		});
+
+		return turns;
+	}
+
+	function extractTurnsFromMessages(entry: Record<string, unknown>) {
+		const messages = Array.isArray(entry.messages)
+			? entry.messages
+			: Array.isArray(entry.turns)
+				? entry.turns
+				: [];
+
+		return messages
+			.map((item, index) => {
+				const obj = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+				const author =
+					obj.author && typeof obj.author === 'object'
+						? (obj.author as Record<string, unknown>)
+						: null;
+				const text = normalizeExtractedText(
+					extractMessageText(obj.content ?? obj.text ?? obj.parts ?? obj.message)
+				);
+				if (!text) return null;
+
+				return {
+					role: normalizeRole(obj.role ?? author?.role),
+					text,
+					createdAt: toTimestamp(obj.create_time ?? obj.timestamp ?? obj.time),
+					order: index
+				};
+			})
+			.filter(Boolean) as ConversationTurn[];
+	}
+
+	function extractConversationText(entry: unknown) {
+		if (typeof entry === 'string') return normalizeExtractedText(entry);
+		if (!entry || typeof entry !== 'object') return '';
+
+		const obj = entry as Record<string, unknown>;
+		let turns = extractTurnsFromMapping(obj);
+
+		if (!turns.length) {
+			turns = extractTurnsFromMessages(obj);
+		}
+
+		if (!turns.length) {
+			const promptText = extractMessageText(obj.prompt ?? obj.input ?? obj.question);
+			const responseText = extractMessageText(obj.response ?? obj.output ?? obj.answer);
+			const stitched = [promptText && `user: ${promptText}`, responseText && `assistant: ${responseText}`]
+				.filter(Boolean)
+				.join('\n\n');
+			return normalizeExtractedText(stitched);
+		}
+
+		return normalizeExtractedText(turns.map((turn) => `${turn.role}: ${turn.text}`).join('\n\n'));
 	}
 
 	function extractConversationsFromJson(fileName: string, rawJson: string) {
@@ -393,7 +561,14 @@
 						: typeof obj?.name === 'string'
 							? obj.name
 							: `Conversation ${index + 1}`;
-				const textContent = normalizeExtractedText(JSON.stringify(entry, null, 2));
+				const extractedText = extractConversationText(entry);
+				const fallbackJson = JSON.stringify(entry);
+				const textContent = normalizeExtractedText(
+					extractedText ||
+						(fallbackJson.length > 12000
+							? `${fallbackJson.slice(0, 12000)}\n\n[JSON truncated for analysis]`
+							: fallbackJson)
+				);
 				if (!textContent) return null;
 				return {
 					conversationId: candidateId,
@@ -408,7 +583,7 @@
 			{
 				conversationId: `${fileName}#conv-1`,
 				conversationLabel: 'Conversation 1',
-				textContent: normalizeExtractedText(JSON.stringify(parsed, null, 2))
+				textContent: normalizeExtractedText(JSON.stringify(parsed))
 			}
 		];
 	}
@@ -422,6 +597,7 @@
 			chunks = extractConversationsFromJson(baseName, content);
 		} else if (extension === '.html' || extension === '.htm') {
 			chunks = extractConversationsFromHtml(baseName, content);
+			console.log(`Extracted ${chunks.length} conversation(s) from ${fileName} | Example text snippet: "${chunks[0]?.textContent.slice(0, 100)}"`);
 		} else {
 			const fallback = normalizeExtractedText(content);
 			if (fallback) {
@@ -434,6 +610,8 @@
 				];
 			}
 		}
+
+		console.log(`[parse] ${baseName}: extracted ${chunks.length} conversation(s)`);
 
 		for (const chunk of chunks) {
 			if (!chunk.textContent.trim()) continue;
@@ -458,6 +636,9 @@
 		showLoadingModal = !isModelReady;
 		const ensureModelReady = isModelReady ? Promise.resolve() : loadModel();
 		results = [];
+		activeInferenceIndex = null;
+		completedAnalyses = 0;
+		totalAnalyses = 0;
 
 		try {
 			const extension = getFileExtension(file.name);
@@ -510,48 +691,72 @@
 		if (!results.length || !isModelReady) return;
 
 		isProcessing = true;
+		activeInferenceIndex = null;
+		completedAnalyses = 0;
+		totalAnalyses = results.length;
 
 		try {
 			for (let i = 0; i < results.length; i++) {
+				activeInferenceIndex = i;
 				const result = results[i];
-				const imageSrc = await buildImageFromText(result.textContent);
-				if (!imageSrc) {
+				const textForAnalysis = prepareTextForAnalysis(result.textContent);
+				if (!textForAnalysis) {
 					results[i].response = 'Error: unable to prepare content for analysis.';
+					results[i].parsed = null;
+					completedAnalyses = i + 1;
 					continue;
 				}
-				const img = new Image();
-				img.src = imageSrc;
+				try {
+					results[i].response = '';
+					results[i].parsed = null;
 
-				await new Promise<void>((resolve) => {
-					img.onload = async () => {
-						try {
-							const finalText = await ministral.generate(img, prompt, (updatedText) => {
-								results[i].response = updatedText;
-							});
-							results[i].parsed = parseAnalysis(finalText);
-							console.log('[analysis-json]', {
-								sourceFile: results[i].sourceFile,
-								conversationId: results[i].conversationId,
-								conversationLabel: results[i].conversationLabel,
-								rawResponse: finalText,
-								extractedJson: extractJSONPayload(finalText)
-							});
-						} catch (e) {
-							results[i].response = 'Error: ' + e;
-							results[i].parsed = null;
-						}
-						resolve();
+					const startTime = performance.now();
+					const metrics: GenerationMetrics = {
+						ttftMs: null,
+						generationMs: 0,
+						generatedChars: 0,
+						emittedPieces: 0,
+						piecesPerSecond: 0,
+						charsPerSecond: 0
 					};
-					img.onerror = () => {
-						results[i].response = 'Error: unable to load content for analysis.';
-						results[i].parsed = null;
-						resolve();
-					};
-				});
+					const finalText = await ministral.generate(textForAnalysis, prompt, undefined, (generationMetrics) => {
+						Object.assign(metrics, generationMetrics);
+					});
+					const endTime = performance.now();
+
+					results[i].response = finalText;
+					results[i].parsed = parseAnalysis(finalText);
+					console.log('[inference-metrics]', {
+						sourceFile: results[i].sourceFile,
+						conversationId: results[i].conversationId,
+						conversationLabel: results[i].conversationLabel,
+						runtimeStatusMessage,
+						totalMs: Number((endTime - startTime).toFixed(2)),
+						ttftMs: metrics.ttftMs === null ? null : Number(metrics.ttftMs.toFixed(2)),
+						generationMs: Number(metrics.generationMs.toFixed(2)),
+						emittedPieces: metrics.emittedPieces,
+						piecesPerSecond: Number(metrics.piecesPerSecond.toFixed(2)),
+						generatedChars: metrics.generatedChars || finalText.length,
+						charsPerSecond: Number(metrics.charsPerSecond.toFixed(2))
+					});
+					console.log('[analysis-json]', {
+						sourceFile: results[i].sourceFile,
+						conversationId: results[i].conversationId,
+						conversationLabel: results[i].conversationLabel,
+						rawResponse: finalText,
+						extractedJson: extractJSONPayload(finalText)
+					});
+				} catch (e) {
+					results[i].response = 'Error: ' + e;
+					results[i].parsed = null;
+				} finally {
+					completedAnalyses = i + 1;
+				}
 			}
 		} catch (e) {
 			console.error('Error during batch processing: ' + e);
 		} finally {
+			activeInferenceIndex = null;
 			isProcessing = false;
 		}
 	}
@@ -627,6 +832,9 @@
 				</p>
 				<p class="mt-3 text-xs font-medium text-slate-500">
 					Works best on Google Chrome (desktop)
+				</p>
+				<p class="mt-2 text-xs font-medium text-slate-500">
+					{runtimeStatusMessage}
 				</p>
 			</div>
 		</header>
@@ -778,6 +986,11 @@
 								Download CSV
 							</button>
 						</div>
+						{#if isProcessing && totalAnalyses > 0}
+							<p class="mb-3 text-xs font-medium text-slate-500">
+								Generating analysis... conversation {Math.min((activeInferenceIndex ?? completedAnalyses) + 1, totalAnalyses)} / {totalAnalyses}
+							</p>
+						{/if}
 
 						<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 							<table class="min-w-full divide-y divide-gray-200">
@@ -801,7 +1014,7 @@
 									</tr>
 								</thead>
 									<tbody class="divide-y divide-gray-200 bg-white">
-										{#each results as result}
+										{#each results as result, i (`${result.sourceFile}-${result.conversationId}-${i}`)}
 											<tr class="transition-colors hover:bg-gray-50/50">
 												<td class="px-6 py-4 whitespace-nowrap">
 													<span class="font-mono text-xs text-gray-500">{result.sourceFile}</span>
@@ -854,7 +1067,7 @@
 													{:else}
 														<p class="leading-relaxed">{result.response}</p>
 													{/if}
-												{:else if isProcessing}
+												{:else if isProcessing && activeInferenceIndex === i}
 													<span class="inline-flex items-center gap-2 text-gray-400">
 														<span
 															class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 delay-0"
@@ -866,6 +1079,8 @@
 															class="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 delay-300"
 														></span>
 													</span>
+												{:else if isProcessing}
+													<span class="text-xs text-gray-300 italic">Queued</span>
 												{:else}
 													<span class="text-xs text-gray-300 italic">Pending</span>
 												{/if}
